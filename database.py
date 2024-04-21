@@ -122,10 +122,19 @@ class CorrespondenceApp(QWidget):
         add_layout = QVBoxLayout()
         add_layout.addWidget(QLabel("Добавить дежурного по узлу связи"))
 
+        # Создание раскладки для звания
         rank_layout = QHBoxLayout()
         rank_layout.addWidget(QLabel("Звание:"))
-        self.rank_input = QLineEdit()
+
+        # Создание выпадающего списка для звания
+        self.rank_input = QComboBox()
+        # Добавление элементов в выпадающий список
+        self.rank_input.addItems(["ефр.", "пр-к", "ст. л-т"])
+
+        # Добавление выпадающего списка в раскладку
         rank_layout.addWidget(self.rank_input)
+
+        # Добавление раскладки для звания в основную раскладку
         add_layout.addLayout(rank_layout)
 
         name_layout = QHBoxLayout()
@@ -242,7 +251,7 @@ class CorrespondenceApp(QWidget):
                 connection.close()
 
     def update_duty_dus_list(self):
-        # Обновляем список дежурных офицеров в интерфейсе
+        # Обновляем список дежурных по узлу связи в интерфейсе
         try:
             connection = sqlite3.connect(self.db_path)
             cursor = connection.cursor()
@@ -361,36 +370,24 @@ class CorrespondenceApp(QWidget):
             QMessageBox.No
         )
 
-        try:
-            # Удаляем дежурного офицера из базы данных
-            connection = sqlite3.connect(self.db_path)
-            cursor = connection.cursor()
-            cursor.execute('DELETE FROM duty_dus WHERE id = ?', (duty_dus_id,))
-            connection.commit()
-        except sqlite3.DatabaseError as e:
-            QMessageBox.critical(self, "Ошибка базы данных", f"Не удалось удалить дежурного по узлу связи: {str(e)}")
-        finally:
-            if connection:
-                connection.close()
-
-                # Проверяем выбор пользователя
-                if reply == QMessageBox.Yes:
-                    try:
-                        # Удаляем дежурного офицера из базы данных
-                        connection = sqlite3.connect(self.db_path)
-                        cursor = connection.cursor()
-                        cursor.execute('DELETE FROM duty_dus WHERE id = ?', (duty_dus_id,))
-                        connection.commit()
-                    except sqlite3.DatabaseError as e:
-                        QMessageBox.critical(self, "Ошибка базы данных",
-                                             f"Не удалось удалить дежурного по узлу связи: {str(e)}")
-                    finally:
-                        if connection:
-                            connection.close()
+        # Проверяем выбор пользователя
+        if reply == QMessageBox.Yes:
+            try:
+                # Удаляем дежурного офицера из базы данных
+                connection = sqlite3.connect(self.db_path)
+                cursor = connection.cursor()
+                cursor.execute('DELETE FROM duty_dus WHERE id = ?', (duty_dus_id,))
+                connection.commit()
+                QMessageBox.information(self, "Успех", "Дежурный по узлу связи удален.")
+            except sqlite3.DatabaseError as e:
+                QMessageBox.critical(self, "Ошибка базы данных",
+                                     f"Не удалось удалить дежурного по узлу связи: {str(e)}")
+            finally:
+                if connection:
+                    connection.close()
 
         # Обновляем список дежурных офицеров
         self.update_duty_dus_list()
-        QMessageBox.information(self, "Успех", "Дежурный по узлу связи удален.")
 
     def search_correspondence(self):
         # Получаем диапазон дат для поиска
@@ -403,7 +400,7 @@ class CorrespondenceApp(QWidget):
             cursor = connection.cursor()
             cursor.execute('''
                 SELECT c.date, c.corr_type, c.urgency, c.incoming, c.outgoing, c.period,
-                       d.rank || ' ' || d.first_name || ' ' || d.last_name || ' ' || d.last_last_name AS duty_dus
+                       d.rank, d.first_name, d.last_name, d.last_last_name
                 FROM correspondence c
                 JOIN duty_dus d ON c.duty_dus_id = d.id
                 WHERE date(c.date) BETWEEN date(?) AND date(?)
@@ -417,10 +414,34 @@ class CorrespondenceApp(QWidget):
             self.search_results_table.setRowCount(len(results))
 
             for i, row in enumerate(results):
-                for j, value in enumerate(row):
+                # Разбираем данные о дежурном
+                rank = row[6]  # Звание
+                first_name = row[7]  # Имя
+                last_name = row[8]  # Фамилия
+                last_last_name = row[9]  # Отчество
+
+                # Формируем строку в нужном формате: "rank last_name initials"
+                # Инициал имени
+                initial_first_name = first_name[
+                    0].upper()  # Берем первую букву имени и преобразуем ее в верхний регистр
+                # Инициал отчества
+                initial_last_last_name = last_last_name[
+                    0].upper() if last_last_name else ''  # Берем первую букву отчества
+
+                # Формируем строку дежурного по узлу связи
+                duty_dus_str = f"{rank} {last_name} {initial_first_name}.{initial_last_last_name}."
+
+                # Добавляем данные в таблицу результатов
+                for j, value in enumerate(row[:6]):
                     item = QTableWidgetItem(str(value))
                     self.search_results_table.setItem(i, j, item)
+
+                # Добавляем строку duty_dus_str в последний столбец таблицы результатов поиска
+                item = QTableWidgetItem(duty_dus_str)
+                self.search_results_table.setItem(i, 6, item)
+
         finally:
+            # Закрываем соединение с базой данных
             if connection:
                 connection.close()
 
