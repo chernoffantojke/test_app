@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QL
 from PyQt5.QtCore import QDate
 import sqlite3
 from fpdf import FPDF
+from datetime import datetime
 
 
 class CorrespondenceApp(QWidget):
@@ -29,7 +30,7 @@ class CorrespondenceApp(QWidget):
         self.create_add_correspondence_tab()
         tab_widget.addTab(self.add_correspondence_tab, "Добавлении нагрузки")
 
-        # Вкладка для управления дежурными офицерами
+        # Вкладка для управления дежурными по узлу связи
         self.create_manage_duty_dus_tab()
         tab_widget.addTab(self.manage_duty_dus_tab, "Управление ДУС")
 
@@ -58,9 +59,9 @@ class CorrespondenceApp(QWidget):
         corr_type_layout.addWidget(QLabel("Тип информации:"))
         self.corr_type_input = QComboBox()
         self.corr_type_input.addItems([
-            "Телефонные переговоры",
-            "Телеграфная корреспонденция",
-            "Электронные сообщения"
+            "ТЛФ",
+            "ТЛГ",
+            "ЗС СПД"
         ])
         corr_type_layout.addWidget(self.corr_type_input)
         layout.addLayout(corr_type_layout)
@@ -70,10 +71,10 @@ class CorrespondenceApp(QWidget):
         urgency_layout.addWidget(QLabel("Срочность:"))
         self.urgency_input = QComboBox()
         self.urgency_input.addItems([
-            "Обыкновенная", "ДСП", "Секретная", "Срочная",
-            "Самолет", "Ракета", "Воздух", "Монолит",
-            "Секретная срочная", "Секретная самолет", "Секретная монолит",
-            "Совершенно секретная", "Особой важности"
+            "ОБК", "ДСП", "Секр.", "Срч.",
+            "Смл", "Ркт", "Воздух", "Мнлт",
+            "Секр. срч.", "Секр. смл.", "Секр. мнлт.",
+            "СС", "ОВ"
         ])
         urgency_layout.addWidget(self.urgency_input)
         layout.addLayout(urgency_layout)
@@ -99,7 +100,7 @@ class CorrespondenceApp(QWidget):
         period_layout.addWidget(self.period_input)
         layout.addLayout(period_layout)
 
-        # Дежурный офицер
+        # Дежурный по узлу связи
         duty_dus_layout = QHBoxLayout()
         duty_dus_layout.addWidget(QLabel("ДУС:"))
         self.duty_dus_input = QComboBox()
@@ -118,7 +119,7 @@ class CorrespondenceApp(QWidget):
         self.manage_duty_dus_tab = QWidget()
         layout = QVBoxLayout()
 
-        # Добавление дежурного офицера
+        # Добавление дежурного по узлу связи
         add_layout = QVBoxLayout()
         add_layout.addWidget(QLabel("Добавить дежурного по узлу связи"))
 
@@ -161,7 +162,7 @@ class CorrespondenceApp(QWidget):
 
         layout.addLayout(add_layout)
 
-        # Удаление дежурного офицера
+        # Удаление дежрными по узлу связи
         delete_layout = QVBoxLayout()
         delete_layout.addWidget(QLabel("Удаление дежурного по узлу связи"))
 
@@ -218,6 +219,7 @@ class CorrespondenceApp(QWidget):
 
     def create_tables(self):
         # Создаем таблицы в базе данных, если их еще нет
+        global connection
         try:
             connection = sqlite3.connect(self.db_path)
             cursor = connection.cursor()
@@ -252,6 +254,7 @@ class CorrespondenceApp(QWidget):
 
     def update_duty_dus_list(self):
         # Обновляем список дежурных по узлу связи в интерфейсе
+        global connection
         try:
             connection = sqlite3.connect(self.db_path)
             cursor = connection.cursor()
@@ -276,8 +279,9 @@ class CorrespondenceApp(QWidget):
                 connection.close()
 
     def add_duty_dus(self):
-        # Получаем данные о новом дежурном офицере
-        rank = self.rank_input.text()
+        # Получаем данные о новом дежурном по узлу связи
+        global connection
+        rank = self.rank_input.currentText()
         first_name = self.first_name_input.text()
         last_name = self.last_name_input.text()
         last_last_name = self.last_last_name_input.text()
@@ -299,21 +303,20 @@ class CorrespondenceApp(QWidget):
             # Подтверждаем изменения
             connection.commit()
 
-            # Обновляем список дежурных офицеров
+            # Обновляем список дежурных по узлу связи
             self.update_duty_dus_list()
 
             # Очищаем поля ввода
-            self.rank_input.clear()
             self.first_name_input.clear()
             self.last_name_input.clear()
             self.last_last_name_input.clear()
 
             # Сообщаем об успехе пользователю
-            QMessageBox.information(self, "Успех", "Дежурный офицер добавлен.")
+            QMessageBox.information(self, "Успех", "Дежурный по узлу связи добавлен.")
 
         except sqlite3.DatabaseError as e:
             # Обработка ошибки базы данных
-            QMessageBox.critical(self, "Ошибка базы данных", f"Не удалось добавить дежурного офицера: {str(e)}")
+            QMessageBox.critical(self, "Ошибка базы данных", f"Не удалось добавить дежурного по узлу связи: {str(e)}")
 
         finally:
             # Закрываем соединение с базой данных
@@ -358,7 +361,8 @@ class CorrespondenceApp(QWidget):
         # Контекстный менеджер автоматически закроет соединение с базой данных
 
     def delete_duty_dus(self):
-        # Получаем ID дежурного офицера для удаления
+        # Получаем ID дежурного по узлу связи для удаления
+        global connection
         duty_dus_id = self.delete_duty_dus_input.currentData()
 
         # Отображаем диалог подтверждения
@@ -373,7 +377,7 @@ class CorrespondenceApp(QWidget):
         # Проверяем выбор пользователя
         if reply == QMessageBox.Yes:
             try:
-                # Удаляем дежурного офицера из базы данных
+                # Удаляем дежурного по узлу связи из базы данных
                 connection = sqlite3.connect(self.db_path)
                 cursor = connection.cursor()
                 cursor.execute('DELETE FROM duty_dus WHERE id = ?', (duty_dus_id,))
@@ -386,11 +390,12 @@ class CorrespondenceApp(QWidget):
                 if connection:
                     connection.close()
 
-        # Обновляем список дежурных офицеров
+        # Обновляем список дежурных по узлу связи
         self.update_duty_dus_list()
 
     def search_correspondence(self):
         # Получаем диапазон дат для поиска
+        global connection
         start_date = self.start_date_input.date().toString("yyyy-MM-dd")
         end_date = self.end_date_input.date().toString("yyyy-MM-dd")
 
@@ -446,39 +451,65 @@ class CorrespondenceApp(QWidget):
                 connection.close()
 
     def export_to_pdf(self):
-        # Экспорт результатов поиска в PDF-файл
-        filename, _ = QFileDialog.getSaveFileName(self, "Сохранить PDF", "", "PDF Files (*.pdf)")
+        # Получаем текущую дату и время
+        current_datetime = datetime.now()
 
-        if filename:
-            pdf = FPDF()
+        # Форматируем дату и время в нужный формат DD-MM-YYYY_HH-mm
+        formatted_datetime = current_datetime.strftime('%d-%m-%Y_%H-%M')
+
+        # Формируем имя файла в формате DD-MM-YYYY_HH-mm_report.pdf
+        filename = f"{formatted_datetime}_report.pdf"
+
+        # Путь к файлу, включая имя файла
+        full_filename, _ = QFileDialog.getSaveFileName(self, "Сохранить PDF", filename, "PDF Files (*.pdf)")
+
+        if full_filename:
+            # Создаем объект FPDF
+            pdf = FPDF(orientation="P", unit="mm", format="A4")
+
+            # Путь к файлам шрифта DejaVu Sans Condensed
+            font_path_regular = 'DejaVuSansCondensed.ttf'
+            font_path_bold = 'DejaVuSansCondensed-Bold.ttf'
+
+            # Добавляем шрифт DejaVu Regular и Bold в библиотеку FPDF
+            pdf.add_font('DejaVu', '', font_path_regular, uni=True)
+            pdf.add_font('DejaVu', 'B', font_path_bold, uni=True)
+
+            # Создаем новую страницу
             pdf.add_page()
-            pdf.set_font("Arial", size=12)
+
+            # Устанавливаем шрифт DejaVu Regular для документа
+            pdf.set_font("DejaVu", size=8)
 
             # Заголовок
-            pdf.set_font("Arial", style="B", size=14)
+            pdf.set_font("DejaVu", style="B", size=10)
             pdf.cell(0, 10, "Результаты поиска корреспонденции", ln=True, align="C")
-            pdf.set_font("Arial", size=12)
+
+            # Возвращаемся к обычному стилю
+            pdf.set_font("DejaVu", size=8)
 
             # Заголовки столбцов
-            headers = [
-                "Дата", "Тип", "Срочность", "Входящая",
-                "Исходящая", "Период", "ДУС"
-            ]
-            for header in headers:
-                pdf.cell(30, 10, header, border=1)
+            headers = ["Дата", "Тип", "Срочность", "Входящая", "Исходящая", "Период", "ДУС"]
 
+            # Установим фиксированный размер столбцов
+            column_widths = [25, 25, 30, 20, 20, 35, 40]  # Фиксированные ширины для столбцов
+
+            # Добавляем заголовки столбцов с фиксированными размерами
+            for i, header in enumerate(headers):
+                pdf.cell(column_widths[i], 10, header, border=1, align="C")
             pdf.ln()
 
-            # Добавляем данные в PDF-файл
+            # Добавляем данные в PDF-файл с использованием фиксированных размеров столбцов
             for i in range(self.search_results_table.rowCount()):
                 for j in range(self.search_results_table.columnCount()):
                     cell_value = self.search_results_table.item(i, j).text()
-                    pdf.cell(30, 10, cell_value, border=1)
+                    # Используем cell для отображения текста в одной строке с фиксированными размерами столбцов
+                    pdf.cell(column_widths[j], 10, cell_value, border=1, align="C")
                 pdf.ln()
 
-            pdf.output(filename)
+            # Сохраняем PDF-файл с полным именем
+            pdf.output(full_filename)
             QMessageBox.information(self, "Успех", "Результаты поиска экспортированы в PDF")
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
